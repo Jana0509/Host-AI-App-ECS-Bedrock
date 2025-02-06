@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jana's AI Image Text Generator</title>
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #6c5ce7, #ff6347);
+      height: 100vh;
+      color: white;
+    }
+
+    .container {
+      background-color: #ffffff;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      width: 350px;
+      text-align: center;
+      position: relative;
+    }
+
+    h2 {
+      font-size: 26px;
+      color: #333;
+      margin-bottom: 15px;
+      font-weight: 600;
+    }
+
+    h3 {
+      font-size: 20px;
+      color: #666;
+      margin-bottom: 25px;
+      font-weight: 400;
+      line-height: 1.5;
+    }
+
+    p {
+      font-size: 14px;
+      color: #999;
+      margin-bottom: 20px;
+    }
+
+    input[type="file"] {
+      width: 100%;
+      padding: 14px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      border: 2px solid #ddd;
+      background-color: #f9f9f9;
+      font-size: 16px;
+      color: #555;
+      transition: border-color 0.3s;
+    }
+
+    input[type="file"]:hover {
+      border-color: #6c5ce7;
+    }
+
+    button {
+      width: 100%;
+      padding: 15px;
+      background-color: #6c5ce7;
+      color: white;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #5943d7;
+    }
+
+    .uploaded-image {
+      display: none;
+      width: 100%;
+      max-height: 300px;
+      object-fit: cover;
+      margin-bottom: 20px;
+      border-radius: 12px;
+    }
+
+    .result {
+      margin-top: 25px;
+      padding: 25px;
+      background-color: #f1f3f4;
+      border-radius: 8px;
+      display: none;
+      font-size: 16px;
+      color: #333;
+      text-align: left;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .footer {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      color: #888;
+    }
+
+    .footer a {
+      color: #6c5ce7;
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Jana's AI Image Description Generator</h2>
+  <h3>Using Bedrock Anthropic Claude-3-Haiku</h3>
+  <p>Upload an image, and let Jana's AI generate a description for you!</p>
+
+  <input type="file" id="imageInput" accept="image/*">
+  <button onclick="uploadImage()">Generate Description</button>
+
+  <!-- Image Preview -->
+  <img id="uploadedImage" class="uploaded-image" alt="Uploaded Image">
+
+  <!-- Result Display -->
+  <div class="result" id="resultContainer">
+    <h4>Image Description:</h4>
+    <p id="descriptionText"></p>
+  </div>
+</div>
+
+<script>
+  async function uploadImage() {
+    const imageInput = document.getElementById('imageInput');
+    const file = imageInput.files[0];
+
+    if (!file) {
+      alert("Please select an image.");
+      return;
+    }
+
+    // Show the uploaded image preview
+    const uploadedImage = document.getElementById('uploadedImage');
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      uploadedImage.src = reader.result;
+      uploadedImage.style.display = 'block'; // Display the image
+    };
+    reader.readAsDataURL(file);
+
+    // Convert image to base64
+    const base64Image = await convertImageToBase64(file);
+
+    // Prepare the payload to send to the API Gateway
+    const payload = {
+      body: JSON.stringify({
+        image_base64: base64Image
+      })
+    };
+
+    // API Gateway URL
+    const apiUrl = "https://e58kb0u4k1.execute-api.us-east-1.amazonaws.com/prod/textgeneration";
+
+    try {
+      // Make the POST request
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      // Extract and parse the 'body' content from the response
+      if (data.body) {
+        const responseBody = JSON.parse(data.body);
+
+        if (responseBody.Description) {
+          document.getElementById('resultContainer').style.display = 'block';
+          document.getElementById('descriptionText').textContent = responseBody.Description;
+        } else {
+          alert("No description returned from the API.");
+        }
+      } else {
+        alert("Invalid response from the API.");
+      }
+
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Failed to fetch description. Please try again.");
+    }
+  }
+
+  // Helper function to convert image file to base64
+  function convertImageToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64Image = reader.result.split(',')[1]; // Strip out "data:image/png;base64,"
+        resolve(base64Image);
+      };
+      reader.onerror = (error) => reject(error);
+      reader.readAsDataURL(file);
+    });
+  }
+</script>
+
+</body>
+</html>
